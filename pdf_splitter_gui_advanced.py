@@ -1,11 +1,14 @@
 import fitz  # PyMuPDF
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import threading
 
 def split_pdf(input_pdf_path, pages_per_split, output_folder, progress_var):
     pdf_document = fitz.open(input_pdf_path)
     total_pages = pdf_document.page_count
     num_splits = (total_pages + pages_per_split - 1) // pages_per_split
+
+    processed_pages = 0
 
     for i in range(num_splits):
         start_page = i * pages_per_split
@@ -14,14 +17,14 @@ def split_pdf(input_pdf_path, pages_per_split, output_folder, progress_var):
 
         for page_num in range(start_page, end_page):
             split_pdf.insert_pdf(pdf_document, from_page=page_num, to_page=page_num)
+            processed_pages += 1
+            progress = (processed_pages / total_pages) * 100
+            progress_var.set(progress)
+            root.update_idletasks()
 
         output_filename = f"{output_folder}/split_{i + 1}.pdf"
         split_pdf.save(output_filename)
         split_pdf.close()
-
-        # Update progress bar
-        progress_var.set((i + 1) / num_splits * 100)
-        root.update_idletasks()
 
     pdf_document.close()
 
@@ -69,8 +72,14 @@ def split_pdf_gui():
         return
 
     progress_var.set(0)
-    split_pdf(input_pdf_path, pages_per_split, output_folder, progress_var)
-    messagebox.showinfo("Success", "PDF has been split successfully.")
+
+    # Run the splitting in a separate thread
+    threading.Thread(
+        target=split_pdf,
+        args=(input_pdf_path, pages_per_split, output_folder, progress_var),
+        daemon=True
+    ).start()
+
 
 # GUI setup
 root = tk.Tk()
